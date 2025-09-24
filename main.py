@@ -68,29 +68,35 @@ class Camera():
         self.block_detections = np.array([])
 
         self.color_range = {
-            'red': [([0, 50, 20], [10, 255, 255]), ([160, 50, 20], [180, 255, 255])],
-            'green': [([35, 40, 20], [85, 255, 255])],
-            'blue': [([90, 50, 20], [150, 255, 255])]
+            'red': [([0, 50, 40], [10, 255, 255]), ([160, 50, 40], [180, 255, 255])],
+            'orange': [([11, 40, 40], [20, 255, 255])],
+            'yellow': [([21, 43, 46], [34, 255, 255])],
+            'green': [([35, 40, 40], [85, 255, 255])],
+            'blue': [([90, 50, 40], [124, 255, 255])],
+            'purple': [([125, 43, 46], [155, 255, 255])]
         }
-
+        self.rgb_dict = {'red': [255, 0, 0],
+                         'orange': [255, 127, 0],
+                         'yellow': [255, 255, 0],
+                         'green': [0, 255, 0],
+                         'blue': [0, 0, 255],
+                         'purple': [148, 0, 211]}
         self.min_depth = 0
         self.max_depth = 1100
-        self.color_dict={}
+        self.centers = []
+        self.color_dict = {'red': [], 'orange': [], 'yellow': [], 'green': [], 'blue': [], 'navy': [], 'purple': []}
 
+'''
     def depthVisual(self):
         """
         darker as the value of depth is larger
         """
         # range
         depth_range = np.clip(self.DepthFrameRaw, self.min_depth, self.max_depth)
-
         # 0~255
         depth_normalized = ((depth_range - self.min_depth) /(self.max_depth - self.min_depth) * 255).astype(np.uint8)
-
         self.DepthFrameRGB = cv2.applyColorMap(depth_normalized, cv2.COLORMAP_JET)
-        # depth in GUI?
-
-        return depth_normalized
+        # block depth isn't obivious enough, might need to modify the scale
 
     def detectEdgesFromDepthCanny(self, low_threshold=50, high_threshold=150, min_area=50):
         """
@@ -99,7 +105,6 @@ class Camera():
         depth_normalized = self.depthVisual()
         edges = cv2.Canny(depth_normalized, low_threshold, high_threshold)
         contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
         centers = []
         for contour in contours:
             if cv2.contourArea(contour) < min_area:
@@ -111,46 +116,72 @@ class Camera():
                 centers.append((cx, cy)) # pixel coordinate
 
         return centers, edges
+'''
+    def pixel_to_world(self, pixel_coords):
+        pixel_coords_homogeneous = np.array([[pixel_coords[0]], [pixel_coords[1]], [1.0]])
 
-    def identify_colors_at_centers(self, centers, box_size=5):
-        """
-        box_size: range around center
-        return list of (cx, cy, color)
-        """
-        frame = self.VideoFrame
-        hsv = cv2.cvtColor(frame, cv2.COLOR_RGB2HSV)
-        results = []
-        for cx, cy in centers:
-            x1 = max(cx - box_size // 2, 0)
-            y1 = max(cy - box_size // 2, 0)
-            x2 = min(cx + box_size // 2 + 1, frame.shape[1])
-            y2 = min(cy + box_size // 2 + 1, frame.shape[0])
+        z = self.DepthFrameRaw[int(pixel_coords_homogeneous[1])][int(pixel_coords_homogeneous[0])]
 
-            box = hsv[y1:y2, x1:x2]
+        camera_coords = np.matmul(np.linalg.inv(self.intrinsic_matrix), pixel_coords_homogeneous)
+        camera_coords = np.array([[z * camera_coords[0]], [z * camera_coords[1]], [z], [1.0]])
 
-            detected_color = None
-            for color_name, ranges in self.color_range.items():
-                for lower, upper in ranges:
-                    lower_np = np.array(lower)
-                    upper_np = np.array(upper)
-                    mask = cv2.inRange(box, lower_np, upper_np)
-                    if np.any(mask > 0):
-                        detected_color = color_name
-                        break
-                if detected_color is not None:
-                    break
-            self.color_dict[detected_color].append((cx, cy))
-
-        return self.color_dict
+        world_coords = np.matmul(np.linalg.inv(self.extrinsic_matrix), camera_coords)
+        return world_coords
 
 
     def processVideoFrame(self):
         """!
         @brief      Process a video frame
         """
+        display_block_detection = True
+
+        frame = self.VideoFrame.copy()
+
+        block_center = []
+        hsv = cv2.cvtColor(frame, cv2.COLOR_RGB2HSV)
+        for color, ranges in self.color_range.items():
+            mask = None
+            for lower, upper in ranges:
+                lower_np = np.array(lower)
+                upper_np = np.array(upper)
+                new_mask = cv2.inRange(hsv, lower_np, upper_np)
+                mask = new_mask if mask is None else cv2.bitwise_or(mask, new_mask)
+
+            contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+            if contours:
+                # largest = max(contours, key = cv2.contourArea)
+                for contour in contours:
+                    if cv2.contourArea(contour) > 800:
+                        M = cv2.moments(contour)
+                        center_px = []
+
+                        if M['m00'] != 0:
+                            cx = int(M['m10'] / M['m00'])
+                            center_px.append(cx)
+                            cy = int(M['m01'] / M['m00'])
+                            center_px.append(cy)
+
+                        center_world = self.pixel_to_world(center_px)
+
+                        if center_world[0] < -500 or center_world[0] > 500 or center_world[1] < -175 or center_world[
+                            1] > 475 or center_world[2] > 800 or center_world[2] < -10:
+                            continue
+
+                        block_center.append(center_world)
+
+                        if display_block_detection:
+                            cv2.circle(self.VideoFrame, center_px, 3, self.rgb_dict[color], 5)
+                            cv2.putText(self.VideoFrame,
+                                        "(%.0f,%.0f,%.0f)" % (center_world[0], center_world[1], center_world[2]),
+                                        (int(center_px[0]),
+                                         int(center_px[1] + 20)), cv2.FONT_HERSHEY_SIMPLEX, 0.75, self.rgb_dict[color],
+                                        2)
+
+        # cv2.drawContours(self.VideoFrame, self.block_contours, -1, (255, 0, 255), 3)
 
 
-    def ColorizeDepthFrame(self):
+def ColorizeDepthFrame(self):
         """!
         @brief Converts frame to colormaped formats in HSV and RGB
         """
