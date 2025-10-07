@@ -1,4 +1,5 @@
 from math import atan2, acos, sqrt, sin, cos, pi
+self.block_info = []
 def analytical_IK(x, y, z, roll = pi/2,elbow_up=True):
     l1 = 205.9
     l2 = 200
@@ -40,6 +41,49 @@ def analytical_IK(x, y, z, roll = pi/2,elbow_up=True):
 
     result = [theta1, theta2, theta3, theta4]
     return result
+def event2(self):
+    # lv1
+    event_color = ["red","orange","yellow", "green", "blue","purple"]
+    for color in event_color:
+        block_info = self.camera.block_info.copy()
+
+        if color == "red":
+            place_pos = [250, -50, 0]
+        elif color == "orange":
+            place_pos = [250, -50, 40]
+        elif color == "yellow":
+            place_pos = [250, -50, 80]
+        elif color == "green":
+            place_pos = [-250, -50, 0]
+        elif color == "blue":
+            place_pos = [-250, -50, 40]
+        elif color == "purple":
+            place_pos = [-250, -50, 80]
+        else:
+            print("Non-RGB Color Detected")
+        for block in block_info:
+            if block[2] == color:
+                block_center = block[0]
+                block_angle = block[1]
+
+                self.pick_block(block_center, block_angle)
+                self.place_block(place_pos, 0)
+
+                continue
+    self.pick_block([-250, -50, 80], 0) #p
+    self.place_block([-15, 22.5, 0], 90)
+    self.pick_block([-250, -50, 40], 0) #b
+    self.place_block([-10, 22.5,0], 90)
+    self.pick_block([-250, -50, 0], 0)#g
+    self.place_block([-5, 22.5,0], 90)
+    self.pick_block([250, -50, 80], 0) #y
+    self.place_block([0, 22.5,0], 90)
+    self.pick_block([250, -50, 40], 0) #o
+    self.place_block([5, 22.5,0], 90)
+    self.pick_block([250,-50,0], 0) #r
+    self.place_block([10, 22.5,0], 90)
+
+
 
 if __name__ == "__main__":
     target_x = 0
