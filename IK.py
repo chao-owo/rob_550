@@ -70,18 +70,32 @@ def event2(self):
                 self.place_block(place_pos, 0)
 
                 continue
-    self.pick_block([-250, -50, 80], 0) #p
-    self.place_block([-15, 22.5, 0], 90)
-    self.pick_block([-250, -50, 40], 0) #b
-    self.place_block([-10, 22.5,0], 90)
-    self.pick_block([-250, -50, 0], 0)#g
-    self.place_block([-5, 22.5,0], 90)
-    self.pick_block([250, -50, 80], 0) #y
-    self.place_block([0, 22.5,0], 90)
-    self.pick_block([250, -50, 40], 0) #o
-    self.place_block([5, 22.5,0], 90)
-    self.pick_block([250,-50,0], 0) #r
-    self.place_block([10, 22.5,0], 90)
+    place_order = ["purple","blue","green","yellow","orange","red"]
+    for color in place_order:
+        block_info = self.camera.block_info.copy()
+        if color == "red":
+            place_pos = [10, 22.5,0]
+        elif color == "orange":
+            place_pos = [5, 22.5,0]
+        elif color == "yellow":
+            place_pos = [0, 22.5,0]
+        elif color == "green":
+            place_pos = [-5, 22.5,0]
+        elif color == "blue":
+            place_pos = [-10, 22.5,0]
+        elif color == "purple":
+            place_pos = [-15, 22.5,0]
+        else:
+            print("Non-RGB Color Detected")
+        for block in block_info:
+            if block[2] == color:
+                block_center = block[0]
+                block_angle = block[1]
+
+                self.pick_block(block_center, block_angle)
+                self.place_block(place_pos, 90)
+                continue
+
 
 
 
