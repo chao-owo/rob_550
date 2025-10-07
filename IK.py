@@ -70,21 +70,46 @@ def event2(self):
                 self.place_block(place_pos, 0)
 
                 continue
+    target_pos = [-250, -50, 120]
+    target_world = target_pos.copy()
+    target_angle_rad = np.pi * target_angle / 180.0
+
+    target_world[2] += 50
+    offset_target = target_world.copy()
+    offset_target[2] += 40
+
+    if offset_target[2] >= 180:
+        orientation_target = [0, 0, clamp(math.atan2(target_world[1], target_world[0]) - np.pi / 2)]
+        target_world[2] -= 30
+
+        offset_target[0] *= 0.95
+        offset_target[1] *= 0.95
+
+        target_world[0] *= 0.95
+        target_world[1] *= 0.95
+    else:
+        orientation_target = [-1.52, target_angle_rad, -1 * target_angle_rad]
+
+    theta_hat_offset = IK_numerical(offset_target, orientation_target, [0, 0, 0, 0, 0])
+    self.rxarm.set_positions(theta_hat_offset)
+
+    self.rxarm.set_positions([0, 0, 0, 0, 0])
+
     place_order = ["purple","blue","green","yellow","orange","red"]
     for color in place_order:
         block_info = self.camera.block_info.copy()
         if color == "red":
-            place_pos = [10, 22.5,0]
+            place_pos = [100, 225,0]
         elif color == "orange":
-            place_pos = [5, 22.5,0]
+            place_pos = [50, 225,0]
         elif color == "yellow":
-            place_pos = [0, 22.5,0]
+            place_pos = [0, 225,0]
         elif color == "green":
-            place_pos = [-5, 22.5,0]
+            place_pos = [-50, 225,0]
         elif color == "blue":
-            place_pos = [-10, 22.5,0]
+            place_pos = [-100, 225,0]
         elif color == "purple":
-            place_pos = [-15, 22.5,0]
+            place_pos = [-150, 225,0]
         else:
             print("Non-RGB Color Detected")
         for block in block_info:
